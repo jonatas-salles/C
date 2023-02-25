@@ -1,4 +1,4 @@
-#if 0
+/*
 Em um campeonato de futebol existem 5 times com 11
 jogadores cada. Faça um programa que receba a
 idade, o peso e a altura de cada um dos jogadores,
@@ -9,7 +9,7 @@ A altura média de todos os jogadores do
 campeonato;
 A porcentagem de jogadores de todos os times com
 mais de 80 quilos.
-#endif
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
