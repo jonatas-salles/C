@@ -2,9 +2,15 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <string.h>
+#include <time.h>
 
 #define MAX_PILOTO 100
 #define MAX_VOOS 100
+#define MAX_VIAGENS 100
+
+typedef struct {
+	int dia, mes, ano;
+} Data;
 
 typedef struct {
     char registro_piloto[15], nome[40], data_nascimento[11], sexo[20], curso[50], emails[10][50], telefones[10][50];
@@ -16,6 +22,12 @@ typedef struct {
 	char cidade_origem[50], cidade_destino[50], aeronave[50], escalas[50][10], tempo_medio[10];
 	float distancia;
 } Voo;
+
+typedef struct {
+	int numero_voo, qtd_ocorrencias;
+	char registro_piloto[15], hora_saida[10], hora_chegada[10], ocorrencias[200][10], pk[200];
+	Data data_saida, data_chegada;
+} Viagem;
 
 void menu();
 
@@ -46,11 +58,26 @@ int alterar_escala(Voo voos[], int indice, int idx_escala);
 int remover_escala(Voo voos[], int indice, int idx_escala);
 void remover_voo(Voo voos[], int indice, int *qtd_voos);
 
+// VIAGENS
+void submenu_viagens(Viagem viagens[], Voo voos[], Piloto pilotos[], int *idx_viagens, int idx_voos, int idx_pilotos);
+int inserir_viagem(Viagem viagens[], Voo voos[], Piloto pilotos[], int *idx_viagens, int idx_voos, int idx_pilotos);
+int buscar_viagem(Viagem viagens[], char pk[], int qtd_viagens);
+void listar_viagem(Viagem viagens[], int indice, int qtd_viagens);
+void listar_todas_viagens(Viagem viagens[], int qtd_viagens);
+int listar_viagens_por_voo(Viagem viagens[], int num, int qtd_viagens);
+void alterar_viagem(Viagem viagens[], int indice, int qtd_viagens);
+int adicionar_ocorrencia(Viagem viagens[], int indice);
+int alterar_ocorrencia(Viagem viagens[], int indice, int idx_ocorrencia);
+int remover_ocorrencia(Viagem viagens[], int indice, int idx_ocorrencia);
+void remover_viagem(Viagem viagens[], int indice, int *qtd_viagens);
+
+
 void main() {
 	setlocale(LC_ALL, "Portuguese");
-	int opcao, qtd_pilotos = 0, qtd_voos = 0;
+	int opcao, qtd_pilotos = 0, qtd_voos = 0, qtd_viagens = 0;
 	Piloto pilotos[MAX_PILOTO];
 	Voo voos[MAX_VOOS];
+	Viagem viagens[MAX_VIAGENS];
 	
 	do {
 		menu();
@@ -66,9 +93,15 @@ void main() {
 			
 			case 2: system("cls");
 				submenu_voos(voos, &qtd_voos);
+				break;
+				
+			case 3: system("cls");
+				submenu_viagens(viagens, voos, pilotos, &qtd_viagens, qtd_voos, qtd_pilotos);
+				break;
 			default: printf("Opcao invalida!\n");
+			
 		}
-	} while (opcao != 0 && opcao >= 1 && opcao <= 2);
+	} while (opcao != 0 && opcao >= 1 && opcao <= 3);
 }
 
 void menu() {
@@ -76,7 +109,8 @@ void menu() {
 	printf("**********Menu de Opcoes**********\n\n");
 	printf("\t1. Acessar submenu Pilotos.\n");
 	printf("\t2. Acessar submenu Voos.\n");
-	printf("\nEscolha uma opcao entre 1 e 2 ou digite 0 para sair: ");
+	printf("\t3. Acessar submenu Viagens.\n");
+	printf("\nEscolha uma opcao entre 1 e 3 ou digite 0 para sair: ");
 }
 
 // PILOTOS
@@ -176,6 +210,7 @@ int inserir_piloto(Piloto pilotos[], int *idx_pilotos) {
     printf("Curso: ");
     gets(pilotos[*idx_pilotos].curso);
     
+    printf("\nInsercao de emails: Digite 0 para encerrar insercao\n\n");
 	for(i=0; i<10; i++) {
     	printf("Email %d: ", i+1);
     	gets(entrada);
@@ -187,6 +222,7 @@ int inserir_piloto(Piloto pilotos[], int *idx_pilotos) {
 		}
 	}
 	
+	printf("\nInsercao de telefones: Digite 0 para encerrar insercao\n\n");
 	for(i=0; i<10; i++) {
     	printf("Telefone %d: ", i+1);
     	gets(entrada);
@@ -757,7 +793,7 @@ int alterar_voo(Voo voos[], int indice, int qtd_voos) {
 						scanf("%d", &i);
 						
 						if (alterar_escala(voos, indice, i-1) == 1) {
-							printf("Escala adicionada com sucesso!\n");
+							printf("Escala alterada com sucesso!\n");
 						} else {
 							printf("Indice de escala invalido\n");
 						}
@@ -842,6 +878,428 @@ void remover_voo(Voo voos[], int indice, int *qtd_voos) {
 	
 	(*qtd_voos)--;
 }
+
+// VIAGENS
+void submenu_viagens(Viagem viagens[], Voo voos[], Piloto pilotos[], int *idx_viagens, int idx_voos, int idx_pilotos) {
+	int opcao, encontrou, numero_voo, i;
+	char registro[15];
+	
+	do {
+		printf("\n**********Submenu de Viagens**********\n\n");
+		printf("\t1. Registrar Viagem.\n");
+		printf("\t2. Listar viagem por indice.\n");
+		printf("\t3. Listar todas viagens.\n");
+		printf("\t4. Listar viagens por voo.\n");
+		printf("\t5. Alterar viagem.\n");
+		printf("\t6. Remover viagem.\n");
+		printf("\nEscolha uma opcao entre 1 e 6 ou digite 0 para voltar ao menu principal: ");
+		scanf("%d", &opcao);
+		
+		switch (opcao) {
+			case 0:
+				printf("Voltando para o menu principal...\n");
+				break;
+				
+			case 1:
+				i = inserir_viagem(viagens, voos, pilotos, &(*idx_viagens), idx_voos, idx_pilotos) == 1;
+				if (i == 1) {
+					printf("Viagem adicionada com sucesso!\n");
+				} else {
+					if (i == 0) {
+						printf("Dado(s) de viagem invalido(s)\n");
+					} else {
+						printf("Viagem ja existe\n");
+					}
+				}
+				break;
+			
+			case 2:
+				printf("Digite o indice da viagem que deseja imprimir: ");
+				scanf("%d", &i);
+				if (i <= *idx_viagens) {
+					listar_viagem(viagens, i, *idx_viagens);
+				} else {
+					printf("Indice invalido\n");
+				}
+				break;
+				
+			case 3:
+				listar_todas_viagens(viagens, *idx_viagens);
+				break;
+			
+			case 4:
+				printf("Insira o numero do Voo que deseja listar: ");
+				scanf("%d", &numero_voo);
+				if(listar_viagens_por_voo(viagens, numero_voo, *idx_viagens) == -1) {
+					printf("Nenhuma viagem encontrada\n");
+				}
+				
+				break;
+			
+			case 5:
+				printf("Digite o indice da viagem que deseja alterar: ");
+				scanf("%d", &i);
+				
+				if (i <= *idx_viagens) {
+					alterar_viagem(viagens, i-1, *idx_viagens);
+					printf("Viagem alterada com sucesso!\n");
+				} else {
+					printf("Indice invalido\n");
+				}
+				break;
+				
+			case 6:
+				printf("Digite o indice da viagem que deseja remover: ");
+				scanf("%d", &i);
+				
+				if (i <= *idx_viagens) {
+					remover_viagem(viagens, i-1, &(*idx_viagens));
+					printf("Viagem removida com sucesso!\n");
+				} else {
+					printf("Indice invalido\n");
+				}
+				break;
+			
+			default: printf("Opcao invalida!\n");
+		}
+	} while (opcao != 0 && opcao >= 1 && opcao <= 6);
+}
+
+int inserir_viagem(Viagem viagens[], Voo voos[], Piloto pilotos[], int *idx_viagens, int idx_voos, int idx_pilotos) {
+	int num, dia, mes, ano, i;
+	char registro[15], hora_saida[10], ocorrencia[200], pk[200], str[10];
+	strcpy(pk, "");
+	
+	// RECEBENDO DADOS QUE FORMAM PK
+	printf("\nNumero Voo: ");
+	scanf("%d", &num);
+	fflush(stdin);
+	
+	if (buscar_voo(voos, num, idx_voos) == -1) {
+		printf("Voo nao encontrado!\n");
+		return 0;
+	}
+	
+	sprintf(str, "%d", num);
+	strcat(pk, str);
+	
+	printf("Registro do piloto: ");
+	gets(registro);
+	
+	if (buscar_piloto(pilotos, registro, idx_pilotos) == -1) {
+		printf("Piloto nao encontrado!\n");
+		return 0;
+	}
+	
+	strcat(pk, registro);
+	
+	printf("Data Saida: \n");
+	printf("Dia (1-31): ");
+	scanf("%d", &dia);
+	sprintf(str, "%d", dia);
+	strcat(pk, str);
+	printf("Mes (1-12): ");
+	scanf("%d", &mes);
+	sprintf(str, "%d", mes);
+	strcat(pk, str);
+	printf("Ano (1900 - 2100): ");
+	scanf("%d", &ano);
+	sprintf(str, "%d", ano);
+	strcat(pk, str);
+	fflush(stdin);
+	
+	printf("Hora saida (HH:MM): ");
+	gets(hora_saida);
+	strcat(pk, hora_saida);
+	
+	if (buscar_viagem(viagens, pk, *idx_viagens) >= 0) {
+		return -1;
+	}
+	
+	strcpy(viagens[*idx_viagens].pk, pk);
+	
+	//SALVANDO DADOS
+	viagens[*idx_viagens].numero_voo = num;
+	strcpy(viagens[*idx_viagens].registro_piloto, registro);
+	viagens[*idx_viagens].data_saida.dia = dia;
+	viagens[*idx_viagens].data_saida.mes = mes;
+	viagens[*idx_viagens].data_saida.ano = ano;
+	strcpy(viagens[*idx_viagens].hora_saida, hora_saida);
+	
+	// LEITURA E GRAVACAO DOS DADOS RESTANTES
+	printf("Data chegada: ");
+	printf("Dia (1-31): ");
+	scanf("%d", &viagens[*idx_viagens].data_chegada.dia);
+	printf("Mes (1-12): ");
+	scanf("%d", &viagens[*idx_viagens].data_chegada.mes);
+	printf("Ano (1900 - 2100): ");
+	scanf("%d", &viagens[*idx_viagens].data_chegada.ano);
+	fflush(stdin);
+	printf("Hora chegada (HH:MM): ");
+	gets(viagens[*idx_viagens].hora_chegada);
+	
+	printf("\nInsercao de ocorrencias: Digite 0 para encerrar insercao\n\n");
+	for (i=0; i<10; i++) {
+		printf("Ocorrencia %d: ", i+1);
+		gets(ocorrencia);
+		
+		if (stricmp(ocorrencia, "0") != 0) {
+			strcpy(viagens[*idx_viagens].ocorrencias[i], ocorrencia);
+			viagens[*idx_viagens].qtd_ocorrencias++;
+		} else {
+			i = 50;
+		}
+	}
+	
+	(*idx_viagens)++;
+	return 1;	
+}
+
+int buscar_viagem(Viagem viagens[], char pk[], int qtd_viagens) {
+	int i;
+	printf("\n%s\n", pk);
+	for (i=0; i<qtd_viagens; i++) {
+		printf("PK struct: %s\n", viagens[i].pk);
+		if(stricmp(viagens[i].pk, pk) == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void listar_viagem(Viagem viagens[], int indice, int qtd_viagens) {
+	int i;
+	
+	printf("\n****************************************\n");
+	printf("\nImprimindo Viagem\n");
+	printf("Numero Voo: %d\n", viagens[indice].numero_voo);
+	printf("Registro Piloto: %s\n", viagens[indice].registro_piloto);
+	printf("Data saida: %02d/%02d/%04d\n", viagens[indice].data_saida.dia, viagens[indice].data_saida.mes, viagens[indice].data_saida.ano);
+	printf("Hora saida: %s\n", viagens[indice].hora_saida);
+	printf("Data chegada: %02d/%02d/%04d\n", viagens[indice].data_chegada.dia, viagens[indice].data_chegada.mes, viagens[indice].data_chegada.ano);
+	printf("Hora chegada: %s\n", viagens[indice].hora_chegada);
+	
+	for (i=0; i<viagens[indice].qtd_ocorrencias; i++) {
+		printf("Ocorrencia %d: %s", i+1, viagens[indice].ocorrencias[i]);
+		printf("\n");
+	}
+	printf("\n****************************************\n");
+}
+
+void listar_todas_viagens(Viagem viagens[], int qtd_viagens) {
+	int i;
+	
+	for (i=0; i<qtd_viagens; i++) {
+		printf("********** Viagem %d **********", i+1);
+		listar_viagem(viagens, i, qtd_viagens);
+		printf("\n");
+	}
+}
+
+int listar_viagens_por_voo(Viagem viagens[], int num, int qtd_viagens) {
+	int i, retorno = -1;
+	
+	for (i=0; i<qtd_viagens; i++) {
+		if (viagens[i].numero_voo == num) {
+			listar_viagem(viagens, i, qtd_viagens);
+			printf("\n");
+			retorno = 1;
+		}
+	}
+	
+	return retorno;
+}
+
+void alterar_viagem(Viagem viagens[], int indice, int qtd_viagens) {
+	int opcao, opcao_ocorrencia, i;
+	
+	printf("Alterando viagem do indice:  %d\n", indice);
+	
+	do {
+		listar_viagem(viagens, indice, qtd_viagens);
+		
+		printf("**********Menu de Alteracao**********\n\n");
+		printf("\t1. Data de chegada\n");
+		printf("\t2. Hora de chegada\n");
+		printf("\t3. Submenu ocorrencias\n");
+		printf("\nEscolha uma opcao de 1 a 3 ou digite 0 para voltar ao submenu de viagens: ");
+		scanf("%d", &opcao);
+		fflush(stdin);
+		
+		switch (opcao) {
+			case 0:
+				printf("Voltando ao submenu de viagens\n");
+				break;
+				
+			case 1:
+				printf("Data chegada: \n");
+				printf("Dia (1-31): ");
+				scanf("%d", &viagens[indice].data_chegada.dia);
+				printf("Mes (1-12): ");
+				scanf("%d", &viagens[indice].data_chegada.mes);
+				printf("Ano (1900 - 2100): ");
+				scanf("%d", &viagens[indice].data_chegada.ano);
+				fflush(stdin);
+				
+				break;
+				
+			case 2:
+				printf("Hora chegada (HH:MM): ");
+				gets(viagens[indice].hora_chegada);
+				
+				break;
+				
+			case 3:
+				system("cls");
+				printf("**********Submenu de alteracao de ocorrencias**********\n\n");
+				printf("\t1. Adicionar ocorrencia\n");
+				printf("\t2. Alterar ocorrencia\n");
+				printf("\t3. Remover ocorrencia\n");
+				printf("\nEscolha uma ocao de 1 a 3 ou digite 0 para retornar ao menu de alteracao: ");
+				scanf("%d", &opcao_ocorrencia);
+				
+				switch (opcao_ocorrencia) {
+					case 0:
+						printf("Voltando ao menu de alteracao...");
+						break;
+						
+					case 1:
+						if (adicionar_ocorrencia(viagens, indice) == 1) {
+							printf("Ocorrencia adicionada com sucesso!\n");
+						} else {
+							printf("Limite de ocorrencias atingido\n");
+						}
+						
+						break;
+						
+					case 2:
+						system("cls");
+						fflush(stdin);
+						
+						for (i=0; i<viagens[indice].qtd_ocorrencias; i++) {
+							printf("%d: %s\n", i+1, viagens[indice].ocorrencias[i]);
+						}
+						
+						printf("Insira o indice da ocorrencia que deseja alterar: ");
+						scanf("%d", &i);
+						
+						if (alterar_ocorrencia(viagens, indice, i-1) == 1) {
+							printf("Ocorrencia alterada com sucesso!\n");
+						} else {
+							printf("Indice de ocorrencia invalido\n");
+						}
+						
+						break;
+						
+					case 3:
+						system("cls");
+						fflush(stdin);
+						
+						for (i=0; i<viagens[indice].qtd_ocorrencias; i++) {
+							printf("%d: %s\n", i+1, viagens[indice].ocorrencias[i]);
+						}
+						
+						printf("Insira o indice da ocorrencia que deseja remover: ");
+						scanf("%d", &i);
+						
+						if (remover_ocorrencia(viagens, indice, i-1) == 1) {
+							printf("Ocorrencia removida com sucesso!\n");
+						} else {
+							printf("Indice de ocorrencia invalido\n");
+						}
+						
+						break;
+				}
+				break;
+				
+			default: printf("Opcao invalida!\n");
+		}
+	} while (opcao != 0 && opcao >= 1 && opcao <= 3);
+}
+
+int adicionar_ocorrencia(Viagem viagens[], int indice) {
+	int idx_ocorrencia = viagens[indice].qtd_ocorrencias;
+	if (idx_ocorrencia >= 10) {
+		return -1;
+	}
+	
+	fflush(stdin);
+	printf("Ocorrencia: ");
+	gets(viagens[indice].ocorrencias[idx_ocorrencia]);
+	
+	viagens[indice].qtd_ocorrencias++;
+	
+	return 1;
+}
+
+int alterar_ocorrencia(Viagem viagens[], int indice, int idx_ocorrencia) {
+	int qtd_ocorrencias = viagens[indice].qtd_ocorrencias;
+	
+	if (idx_ocorrencia >= qtd_ocorrencias) {
+		return -1;
+	}
+	
+	fflush(stdin);
+	printf("Ocorrencia: ");
+	gets(viagens[indice].ocorrencias[idx_ocorrencia]);
+	
+	return 1;
+}
+
+int remover_ocorrencia(Viagem viagens[], int indice, int idx_ocorrencia) {
+	int qtd_ocorrencias = viagens[indice].qtd_ocorrencias, i;
+	
+	if (idx_ocorrencia >= qtd_ocorrencias) {
+		return -1;
+	}
+	
+	for (i=idx_ocorrencia; i<qtd_ocorrencias; i++) {
+		strcpy(viagens[indice].ocorrencias[i], viagens[indice].ocorrencias[i+1]);
+	}
+	
+	viagens[indice].qtd_ocorrencias--;
+	return 1;
+}
+
+void remover_viagem(Viagem viagens[], int indice, int *qtd_viagens) {
+	int i;
+	
+	for (i=indice; i < (*qtd_viagens) - 1; i++) {
+		viagens[i] = viagens[i+1];
+	}
+	
+	(*qtd_viagens)--;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
