@@ -2,19 +2,22 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <string.h>
-#include <time.h>
 
 #define MAX_PILOTO 100
 #define MAX_VOOS 100
 #define MAX_VIAGENS 100
+
+// SC3022862 - Jonatas Henrique Salles
+// SC3029948 - Deividi Filho
 
 typedef struct {
 	int dia, mes, ano;
 } Data;
 
 typedef struct {
-    char registro_piloto[15], nome[40], data_nascimento[11], sexo[20], curso[50], emails[10][50], telefones[10][50];
+    char registro_piloto[15], nome[40], sexo[20], curso[50], emails[10][50], telefones[10][50];
     int qtd_emails, qtd_telefones;
+    Data data_nascimento;
 } Piloto;
 
 typedef struct {
@@ -71,6 +74,10 @@ int alterar_ocorrencia(Viagem viagens[], int indice, int idx_ocorrencia);
 int remover_ocorrencia(Viagem viagens[], int indice, int idx_ocorrencia);
 void remover_viagem(Viagem viagens[], int indice, int *qtd_viagens);
 
+// RELATORIOS
+void submenu_relatorios(Viagem viagens[], Voo voos[], Piloto pilotos[], int idx_viagens, int idx_voos, int idx_pilotos);
+int calcular_idade(Piloto pilotos[], int indice, int qtd_pilotos);
+int verificar_intervalo_datas(Viagem viagem, Data data_x, Data data_y);
 
 void main() {
 	setlocale(LC_ALL, "Portuguese");
@@ -98,10 +105,15 @@ void main() {
 			case 3: system("cls");
 				submenu_viagens(viagens, voos, pilotos, &qtd_viagens, qtd_voos, qtd_pilotos);
 				break;
+				
+			case 4: system("cls");
+				submenu_relatorios(viagens, voos, pilotos, qtd_viagens, qtd_voos, qtd_pilotos);
+				break;
+			
 			default: printf("Opcao invalida!\n");
 			
 		}
-	} while (opcao != 0 && opcao >= 1 && opcao <= 3);
+	} while (opcao != 0 && opcao >= 1 && opcao <= 4);
 }
 
 void menu() {
@@ -110,7 +122,8 @@ void menu() {
 	printf("\t1. Acessar submenu Pilotos.\n");
 	printf("\t2. Acessar submenu Voos.\n");
 	printf("\t3. Acessar submenu Viagens.\n");
-	printf("\nEscolha uma opcao entre 1 e 3 ou digite 0 para sair: ");
+	printf("\t4. Acessar submenu Relatorios.\n");
+	printf("\nEscolha uma opcao entre 1 e 4 ou digite 0 para sair: ");
 }
 
 // PILOTOS
@@ -203,8 +216,14 @@ int inserir_piloto(Piloto pilotos[], int *idx_pilotos) {
 	strcpy(pilotos[*idx_pilotos].registro_piloto, registro);
     printf("Nome: ");
     gets(pilotos[*idx_pilotos].nome);
-    printf("Data de nascimento: ");
-    gets(pilotos[*idx_pilotos].data_nascimento);
+    printf("Data de nascimento\n");
+    printf("Dia: ");
+    scanf("%d", &pilotos[*idx_pilotos].data_nascimento.dia);
+    printf("Mes: ");
+    scanf("%d", &pilotos[*idx_pilotos].data_nascimento.mes);
+    printf("Ano: ");
+    scanf("%d", &pilotos[*idx_pilotos].data_nascimento.ano);
+    fflush(stdin);
     printf("Sexo: ");
     gets(pilotos[*idx_pilotos].sexo);
     printf("Curso: ");
@@ -255,7 +274,7 @@ void listar_piloto(Piloto pilotos[], int indice, int qtd_pilotos) {
 	printf("\n****************************************\n");
 	printf("\nImprimindo Piloto de registro: %s\n", pilotos[indice].registro_piloto);
 	printf("\nNome: %s\n", pilotos[indice].nome);
-	printf("Data de Nascimento: %s\n", pilotos[indice].data_nascimento);
+	printf("Data de Nascimento: %2d/%02d/%04d\n", pilotos[indice].data_nascimento.dia, pilotos[indice].data_nascimento.mes, pilotos[indice].data_nascimento.ano);
 	printf("Sexo: %s\n", pilotos[indice].sexo);
 	printf("Curso: %s\n", pilotos[indice].curso);
 	for (i=0; i<pilotos[indice].qtd_emails; i++) {
@@ -307,7 +326,13 @@ int alterar_piloto(Piloto pilotos[], int indice, int qtd_pilotos) {
 			
 			case 2:
 				printf("Data de Nascimento: ");
-				gets(pilotos[indice].data_nascimento);
+				printf("Dia: ");
+			    scanf("%d", &pilotos[indice].data_nascimento.dia);
+			    printf("Mes: ");
+			    scanf("%d", &pilotos[indice].data_nascimento.mes);
+			    printf("Ano: ");
+			    scanf("%d", &pilotos[indice].data_nascimento.ano);
+			    fflush(stdin);
 				break;
 				
 			case 3:
@@ -665,7 +690,7 @@ int inserir_voo(Voo voos[], int *idx_voos) {
 	}
 	
 	(*idx_voos)++;
-	return 1;	
+	return 1;
 }
 
 int buscar_voo(Voo voos[], int num, int qtd_voos) {
@@ -1057,7 +1082,6 @@ int inserir_viagem(Viagem viagens[], Voo voos[], Piloto pilotos[], int *idx_viag
 
 int buscar_viagem(Viagem viagens[], char pk[], int qtd_viagens) {
 	int i;
-	printf("\n%s\n", pk);
 	for (i=0; i<qtd_viagens; i++) {
 		printf("PK struct: %s\n", viagens[i].pk);
 		if(stricmp(viagens[i].pk, pk) == 0) {
@@ -1270,6 +1294,150 @@ void remover_viagem(Viagem viagens[], int indice, int *qtd_viagens) {
 	
 	(*qtd_viagens)--;
 }
+
+//RELATORIOS
+void submenu_relatorios(Viagem viagens[], Voo voos[], Piloto pilotos[], int idx_viagens, int idx_voos, int idx_pilotos) {
+	int i, j, opcao, idade, idade_buscada, encontrou;
+	char cidade[50];
+	Voo voo;
+	Data data_inicial, data_final;
+	
+	do {
+		printf("\n**********Submenu de Relatorios**********\n\n");
+		printf("\t1. Listar piloto acima de certa idade.\n");
+		printf("\t2. Listar voo por cidade na escala.\n");
+		printf("\t3. Listar viagens por intervalo de data.\n");
+		printf("\nEscolha uma opcao entre 1 e 3 ou digite 0 para voltar ao menu principal: ");
+		scanf("%d", &opcao);
+		
+		switch (opcao) {
+			case 0:
+				printf("Voltando para o menu principal...\n");
+				break;
+				
+			case 1:
+				printf("Idade: ");
+				scanf("%d", &idade_buscada);
+				for (i=0; i<idx_pilotos; i++) {
+					idade = calcular_idade(pilotos, i, idx_pilotos);
+					
+					if (idade == -1 || idade_buscada <= 0) {
+						printf("Erro ao calcular idade");
+					}
+					if (idade > idade_buscada) {
+						listar_piloto(pilotos, i, idx_pilotos);
+					}
+				}
+				break;
+				
+			case 2:
+				fflush(stdin);
+				printf("Cidade: ");
+				gets(cidade);
+				
+				for (i=0; i<idx_voos; i++) {
+					voo = voos[i];
+					for (j=0; j<voo.qtd_escalas; j++) {
+						if (stricmp(cidade, voo.escalas[i]) == 0) {
+							listar_voo(voos, i, idx_voos);
+						}
+					}
+				}
+				break;
+				
+			case 3:
+				printf("Data inicial do intervalo\n");
+				printf("Dia: ");
+				scanf("%d", &data_inicial.dia);
+				printf("Mes: ");
+				scanf("%d", &data_inicial.mes);
+				printf("Ano: ");
+				scanf("%d", &data_inicial.ano);
+				printf("Data final do intervalo\n");
+				printf("Dia: ");
+				scanf("%d", &data_final.dia);
+				printf("Mes: ");
+				scanf("%d", &data_final.mes);
+				printf("Ano: ");
+				scanf("%d", &data_final.ano);
+				
+				for (i=0; i<idx_viagens; i++) {
+					if (verificar_intervalo_datas(viagens[i], data_inicial, data_final) == 1) {
+						encontrou = buscar_piloto(pilotos, viagens[i].registro_piloto, idx_pilotos);
+						printf("\n****************************************\n");				
+						printf("Viagem comandada pelo piloto: %s\n", pilotos[encontrou].nome);
+						listar_viagem(viagens, i, idx_viagens);
+					}
+				}
+				break;
+				
+			default: printf("Opcao invalida!\n");			
+		}
+	} while (opcao != 0 && opcao >= 1 && opcao <= 3);
+}
+
+int calcular_idade(Piloto pilotos[], int indice, int qtd_pilotos) {
+	Data data_atual;
+	int dia, mes, ano, idade;
+	printf("Insira a data atual\n");
+	printf("Dia: ");
+	scanf("%d", &dia);
+	printf("Mes: ");
+	scanf("%d", &mes);
+	printf("Ano: ");
+	scanf("%d", &ano);
+	fflush(stdin);
+	
+	if (ano < pilotos[indice].data_nascimento.ano) {
+		return -1;
+	}
+	
+	idade = ano - pilotos[indice].data_nascimento.ano;
+	
+	if (pilotos[indice].data_nascimento.mes == mes) {
+		if(pilotos[indice].data_nascimento.dia < dia) {
+			idade--;
+		}
+	}
+	
+	if (pilotos[indice].data_nascimento.mes < mes) {
+		idade--;
+	}
+	
+	return idade;
+}
+
+int verificar_intervalo_datas(Viagem viagem, Data data_x, Data data_y) {
+	Data data_viagem;
+	data_viagem = viagem.data_saida;
+	int retorno;
+	
+	if (data_x.ano <= viagem.data_saida.ano && data_y.ano >= viagem.data_saida.ano) {
+		retorno = 1;
+		if (data_x.ano == viagem.data_saida.ano) {
+			if (data_x.mes > viagem.data_saida.mes) {
+				retorno = 0;
+			} else if (data_x.mes == viagem.data_saida.mes) {
+				if (data_x.dia > viagem.data_saida.dia) {
+					retorno = 0;
+				}
+			}
+		}
+		
+		if (data_y.ano == viagem.data_saida.ano) {
+			if (data_y.mes < viagem.data_saida.mes) {
+				retorno = 0;
+			} else if (data_y.mes == viagem.data_saida.mes) {
+				if (data_y.dia < viagem.data_saida.dia) {
+					retorno = 0;
+				}
+			}
+		}
+	}
+	
+	return retorno;
+}
+
 
 
 
